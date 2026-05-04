@@ -1,0 +1,82 @@
+:root {
+    --bg-dark: #0f172a;
+    --sidebar-bg: #1e293b;
+    --accent-blue: #3b82f6;
+    --text-main: #f1f5f9;
+    --text-dim: #94a3b8;
+    --card-bg: #1e293b80;
+    --border-color: #334155;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-dark); color: var(--text-main); overflow: hidden; }
+
+.app-container { display: flex; height: 100vh; }
+
+/* Sidebar */
+.sidebar { width: 240px; background: var(--sidebar-bg); display: flex; flex-direction: column; padding: 20px 0; border-right: 1px solid var(--border-color); }
+.logo { padding: 0 20px 30px; display: flex; align-items: center; gap: 10px; color: var(--accent-blue); }
+.logo i { font-size: 24px; }
+.logo .title { display: block; font-weight: bold; color: white; }
+.logo .subtitle { font-size: 12px; color: var(--text-dim); }
+
+nav { flex: 1; }
+.nav-item { padding: 12px 20px; color: var(--text-dim); cursor: pointer; display: flex; align-items: center; gap: 15px; transition: 0.3s; }
+.nav-item:hover, .nav-item.active { background: #334155; color: white; border-left: 4px solid var(--accent-blue); }
+
+/* Main Content */
+.main-content { flex: 1; display: flex; flex-direction: column; padding: 20px; gap: 20px; overflow-y: auto; }
+.content-header h2 { margin-bottom: 15px; }
+.controls { display: flex; gap: 20px; }
+.input-group { display: flex; flex-direction: column; gap: 5px; flex: 1; }
+.input-group label { font-size: 12px; color: var(--text-dim); }
+select { background: var(--sidebar-bg); border: 1px solid var(--border-color); color: white; padding: 10px; border-radius: 8px; }
+
+.editor-section { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; flex: 1; min-height: 0; }
+
+.code-editor { background: #010409; border: 1px solid var(--border-color); border-radius: 12px; position: relative; display: flex; flex-direction: column; }
+#codeInput { flex: 1; background: transparent; border: none; color: #79c0ff; padding: 20px; font-family: 'Courier New', monospace; resize: none; outline: none; }
+
+.btn-analyze { position: absolute; bottom: 20px; right: 20px; background: var(--accent-blue); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+
+/* Chat Section */
+.chat-section { display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
+.chat-bubble { background: var(--card-bg); border: 1px solid var(--border-color); padding: 15px; border-radius: 12px; }
+.bubble-header { font-size: 14px; font-weight: bold; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; color: var(--text-dim); }
+.ai { border-left: 4px solid #10b981; }
+
+.code-block { background: #0d1117; padding: 15px; border-radius: 8px; position: relative; margin-top: 10px; border: 1px solid #30363d; }
+.code-block pre { color: #ff7b72; font-family: monospace; }
+.copy-btn { position: absolute; top: 10px; right: 10px; color: var(--text-dim); cursor: pointer; }
+
+/* Footer */
+.app-footer { background: var(--sidebar-bg); padding: 10px 20px; border-radius: 8px; display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim); }
+
+#aiResponse pre {
+    background: #0d1117;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #30363d;
+    overflow-x: auto; /* Agar kode panjang bisa di-scroll ke samping */
+}
+
+#aiResponse pre code {
+    color: #ff7b72;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+/* Untuk kode sebaris (inline code) seperti `int a` */
+#aiResponse p code {
+    background: #334155;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Courier New', Courier, monospace;
+    color: #79c0ff;
+}
+
+#aiResponse p {
+    margin-bottom: 12px;
+    line-height: 1.5;
+}

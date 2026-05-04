@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Academic Coding Assistant</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <!-- Font Awesome untuk Icon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fas fa-robot"></i>
+                <div>
+                    <span class="title">Academic</span>
+                    <span class="subtitle">Coding Assistant</span>
+                </div>
+            </div>
+            <nav>
+                <div class="nav-item"><i class="fas fa-home"></i> Home</div>
+                <div class="nav-item active"><i class="fas fa-bug"></i> Bug Fixer</div>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="nav-item"><i class="fas fa-user-cog"></i> Settings</div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="content-header">
+                <h2>Bug Fixer & Explain This Code</h2>
+                <div class="controls">
+                    <div class="input-group">
+                        <label>Pilih Mode</label>
+                        <!-- PERUBAHAN: Menambahkan id="modeSelect" -->
+                        <select id="modeSelect">
+                            <option>Bug Fixer</option>
+                            <option>Explainer</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Pilih Bahasa</label>
+                        <!-- PERUBAHAN: Menambahkan id="langSelect" -->
+                        <select id="langSelect">
+                            <option>C++</option>
+                            <option>Python</option>
+                            <option>JavaScript</option>
+                        </select>
+                    </div>
+                </div>
+            </header>
+
+            <section class="editor-section">
+                <div class="code-editor">
+                    <textarea id="codeInput" placeholder="// Masukkan kode Anda di sini...">// Segmentation Fault Example
+int* ptr;
+*ptr = 10;</textarea>
+                    <button class="btn-analyze" onclick="analyzeCode()">
+                        <i class="fas fa-sparkles"></i> Analisis Kode
+                    </button>
+                </div>
+
+                <div class="chat-section">
+                    <!-- User Prompt -->
+                    <div class="chat-bubble user">
+                        <div class="bubble-header"><i class="fas fa-user-circle"></i> User</div>
+                        <p id="userPromptText">Menunggu instruksi...</p>
+                    </div>
+
+                    <!-- AI Response -->
+                    <div class="chat-bubble ai">
+                        <div class="bubble-header"><i class="fas fa-robot"></i> AI Markdown</div>
+                        <div id="aiResponse">
+                            <p>Kode Anda mengalami <strong>Segmentation Fault</strong> karena mencoba menulis nilai ke lokasi memori acak.</p>
+                            <p><strong>Perbaikannya:</strong> Alokasikan memori sebelum digunakan.</p>
+                            <div class="code-block">
+                                <pre>int* ptr = new int;<br>*ptr = 10;</pre>
+                                <i class="far fa-copy copy-btn"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Footer Info -->
+            <footer class="app-footer">
+                <span>Model: <strong>Qwen2.5-Coder-7B (GGUF)</strong></span> <!-- Menyesuaikan dengan model Anda -->
+                <span>Context: [||||||||--] 1200 / 4096 tokens</span>
+                <span>API Status: Connected to Localhost</span>
+            </footer>
+        </main>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
