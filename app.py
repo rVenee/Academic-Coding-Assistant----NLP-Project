@@ -44,8 +44,16 @@ async def chat_endpoint(request: Request):
     try:
         response = requests.post("http://localhost:8000/v1/chat/completions", json=payload)
         hasil = response.json()
+        
         jawaban_ai = hasil['choices'][0]['message']['content']
-        return {"status": "success", "data": jawaban_ai}
+        # MENGAMBIL DATA PENGGUNAAN TOKEN DARI LLAMA.CPP
+        usage_data = hasil.get('usage', {}) 
+        
+        return {
+            "status": "success", 
+            "data": jawaban_ai,
+            "usage": usage_data
+        }
     except Exception as e:
         return {"status": "error", "message": str(e)}
 

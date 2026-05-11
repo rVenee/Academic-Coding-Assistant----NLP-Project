@@ -4,7 +4,6 @@ async function analyzeCode() {
     const responseArea = document.getElementById('aiResponse');
     
     // 2. Mengambil Mode dan Bahasa (Pastikan ID dropdown di HTML teman Anda sesuai)
-    // Jika teman Anda belum membuat dropdown-nya, ini akan otomatis pakai default
     const modeElement = document.getElementById('modeSelect');
     const langElement = document.getElementById('langSelect');
     
@@ -42,6 +41,32 @@ async function analyzeCode() {
             const aiText = result.data;
             // Menampilkan hasil ke UI
             responseArea.innerHTML = marked.parse(aiText);
+            
+            if (result.usage && result.usage.total_tokens) {
+                const totalTokens = result.usage.total_tokens;
+                const maxTokens = 4096;
+                const percent = (totalTokens / maxTokens) * 10;
+                
+                // Membuat bar progres simpel dari karakter '|' dan '-'
+                let bar = '[';
+                for (let i = 0; i < 10; i++) {
+                    bar += i < percent ? '|' : '-';
+                }
+                bar += ']';
+                
+                const contextElement = document.getElementById('contextIndicator');
+                if (contextElement) {
+                    contextElement.innerText = `Context: ${bar} ${totalTokens} / 4096 tokens`;
+                    
+                    // Ubah warna jadi merah jika memori hampir penuh
+                    if (totalTokens > 3500) {
+                        contextElement.style.color = '#ef4444';
+                    } else {
+                        contextElement.style.color = '';
+                    }
+                }
+            }
+
         } else {
             responseArea.innerHTML = `<p style="color:red">Error dari LLM: ${result.message}</p>`;
         }
