@@ -51,3 +51,31 @@ async function analyzeCode() {
         console.error(error);
     }
 }
+
+function toggleTheme() {
+    const body = document.body;
+    const themeBtn = document.getElementById('themeToggleBtn');
+    
+    body.classList.toggle('light-mode');
+    
+    if (body.classList.contains('light-mode')) {
+        themeBtn.innerHTML = '<i class="fas fa-moon"></i> Dark Mode';
+        localStorage.setItem('theme', 'light');
+    } else {
+        themeBtn.innerHTML = '<i class="fas fa-sun"></i> Light Mode';
+        localStorage.setItem('theme', 'dark');
+    }
+}
+
+
+document.addEventListener('DOMContentLoaded', () => {
+    const savedTheme = localStorage.getItem('theme');
+    const themeBtn = document.getElementById('themeToggleBtn');
+    
+    if (savedTheme === 'light') {
+        document.body.classList.add('light-mode');
+        if (themeBtn) {
+            themeBtn.innerHTML = '<i class="fas fa-moon"></i> Dark Mode';
+        }
+    }
+});
