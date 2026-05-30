@@ -148,3 +148,34 @@ body.light-mode .nav-item:hover {
 body.light-mode .logo .title {
     color: #24292f;
 }
+
+/* Efek Highlight Pemenang Benchmarking */
+.winner-highlight {
+    border: 2px solid #2ea043 !important; /* Hijau Terang */
+    background-color: rgba(46, 160, 67, 0.05);
+    border-radius: 8px;
+    padding: 15px;
+    margin: 10px 0;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.winner-badge {
+    position: absolute;
+    top: -12px;
+    right: 15px;
+    background-color: #2ea043;
+    color: white;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    animation: popIn 0.5s ease-out;
+}
+
+@keyframes popIn {
+    0% { transform: scale(0); }
+    80% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
