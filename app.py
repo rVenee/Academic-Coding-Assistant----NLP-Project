@@ -7,6 +7,7 @@ import uvicorn
 
 app = FastAPI()
 
+# --- MANAJEMEN MEMORI ---
 global_llm = None
 current_model_path = ""
 
@@ -19,17 +20,26 @@ def get_llm(model_path):
             gc.collect()    
             
         print(f"⏳ [SYSTEM] Memuat model baru: {model_path}...")
+        # n_ctx dikunci di 2048 agar aman untuk RAM lokal
         global_llm = Llama(model_path=model_path, n_ctx=2048, n_gpu_layers=-1, verbose=False)
         current_model_path = model_path
         print("✅ [SYSTEM] Model berhasil dimuat!")
     return global_llm
 
+# --- DAFTAR MODEL ---
 MODEL_JUDGE = "models/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf"
 
 MODELS_BENCHMARK = [
     {"name": "DeepSeek Coder 1.3B", "path": "models/deepseek-coder-1.3b-instruct.Q4_K_M.gguf"},
     {"name": "Qwen2.5 Coder 3B", "path": "models/qwen2.5-coder-3b-instruct-q4_k_m.gguf"},
     {"name": "Llama 3.2 3B", "path": "models/llama-3.2-3b-instruct-q4_k_m.gguf"}
+]
+
+# Daftar Stop Token Komprehensif (Mencegah LLM membocorkan tag internal / looping)
+UNIVERSAL_STOP_TOKENS = [
+    "<|im_end|>", "<|endoftext|>", "<|eot_id|>", "</s>", 
+    "[/INST]", "[INST]", "<|EOT|>", "<>", "[INPUT]", "```\n\n",
+    "<></SYS>>", "### Instruction:", "### Response:", "<|im_start|>"
 ]
 
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
@@ -45,21 +55,21 @@ async def chat_endpoint(request: Request):
     bahasa = data.get("bahasa", "C++")
     kode = data.get("kode", "")
     nama_file_model = data.get("nama_file_model", "qwen2.5-coder-3b-instruct-q4_k_m.gguf")
+    benchmark_task = data.get("benchmark_task", "Bug Fixer")
 
     print(f"\n>>> Request Masuk: Mode [{mode}] | Bahasa [{bahasa}] | Model [{nama_file_model}]")
 
+    # =========================================================================
+    # 1. MODE REGULER (Bug Fixer, Explainer, Generate Code)
+    # =========================================================================
     if mode != "Benchmarking":
+        # Prompt yang dioptimalkan agar tidak memicu sifat paranoid LLM
         if mode == "Bug Fixer":
-            system_prompt = f"Kamu adalah 'Academic Coding Assistant'. Analisis error kode {bahasa} ini. Beri petunjuk, BUKAN kode matang."
+            system_prompt = f"Kamu adalah asisten pemrograman. Analisis dan perbaiki error pada kode {bahasa} berikut. Berikan solusi dan penjelasan singkat."
         elif mode == "Explainer":
-            system_prompt = (
-                f"Kamu adalah 'Academic Coding Assistant'. "
-                f"ATURAN MUTLAK: Periksa apakah kode {bahasa} ini error. Jika ERROR, JANGAN jelaskan! "
-                f"Balas saja: '🚨 **Maaf, kode Anda sepertinya error.** Silakan ubah ke mode **Bug Fixer**.' "
-                f"Jika BENAR, jelaskan baris demi baris untuk pemula."
-            )
+            system_prompt = f"Kamu adalah asisten pengajar. Jelaskan cara kerja dan alur logika dari kode {bahasa} berikut secara singkat dan rapi. Jangan mencari error, fokus pada penjelasan logika."
         elif mode == "Generate Code":
-            system_prompt = f"Kamu adalah 'Academic Coding Assistant'. Buatkan kode {bahasa} berdasarkan instruksi. Gunakan best practices."
+            system_prompt = f"Kamu adalah developer ahli. Buatkan kode {bahasa} berdasarkan instruksi berikut menggunakan best practices."
 
         path_dinamis = f"models/{nama_file_model}"
         llm = get_llm(path_dinamis)
@@ -69,61 +79,139 @@ async def chat_endpoint(request: Request):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": f"```{bahasa}\n{kode}\n```"}
                 ],
-                temperature=0.2, max_tokens=1024
+                temperature=0.0,         
+                max_tokens=1024,    
+                stop=UNIVERSAL_STOP_TOKENS
             )
-            return {"status": "success", "mode": mode, "data": response['choices'][0]['message']['content']}
+            
+            jawaban = response['choices'][0]['message']['content'].strip()
+            # Failsafe: Hapus tag aneh jika bocor
+            for token in ["[INST]", "[/INST]", "###", "User:"]:
+                if token in jawaban:
+                    jawaban = jawaban.split(token)[0].strip()
+                    
+            return {"status": "success", "mode": mode, "data": jawaban}
+        
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
+    # =========================================================================
+    # 2. MODE BENCHMARKING (3 Pekerja + 1 Hakim)
+    # =========================================================================
     else:
+        # --- KITA PINDAHKAN LOGIKA PROMPT KE SINI (DI LUAR LOOP) ---
+        if benchmark_task == "Bug Fixer":
+            sys_prompt = f"Perbaiki error pada kode {bahasa} berikut. Langsung berikan kode yang benar dan penjelasan singkat."
+            label_instruksi = f"🎯 [Misi: Perbaiki Bug]\nTolong perbaiki dan jelaskan kode {bahasa} berikut:\n\n{kode}"
+        elif benchmark_task == "Explainer":
+            sys_prompt = f"Jelaskan cara kerja kode {bahasa} berikut secara poin per poin. Singkat, padat, dan jelas."
+            label_instruksi = f"🧠 [Misi: Jelaskan Kode]\nTolong jelaskan alur logika kode {bahasa} berikut secara detail:\n\n{kode}"
+        elif benchmark_task == "Generate Code":
+            sys_prompt = f"Buatkan kode {bahasa} berdasarkan instruksi berikut dengan efisien."
+            label_instruksi = f"✨ [Misi: Buat Kode Baru]\nBuatkan program {bahasa} berdasarkan instruksi berikut:\n\n{kode}"
+        else:
+            sys_prompt = f"Selesaikan instruksi {bahasa} berikut."
+            label_instruksi = kode
+
         laporan_benchmark = {
-            "status": "success", "mode": "Benchmarking", "bahasa": bahasa, "kode_instruksi": kode,
-            "hasil_pekerja": [], "penilaian_hakim": ""
+            "status": "success", 
+            "mode": "Benchmarking", 
+            "bahasa": bahasa, 
+            "kode_instruksi": label_instruksi, # <--- SEKARANG MENGGUNAKAN LABEL RAPI
+            "hasil_pekerja": [], 
+            "penilaian_hakim": ""
         }
         
         jawaban_untuk_hakim = []
 
+        # A. Eksekusi 3 Model AI
         for model in MODELS_BENCHMARK:
             try:
-                llm_worker = get_llm(model['path'])
+                llm_worker = get_llm(model['path'])          
+
                 response = llm_worker.create_chat_completion(
                     messages=[
-                        {"role": "system", "content": f"Selesaikan instruksi pemrograman {bahasa} berikut dengan langsung memberikan kodenya tanpa bertele-tele."},
+                        {"role": "system", "content": sys_prompt},
                         {"role": "user", "content": kode}
                     ],
-                    temperature=0.2, max_tokens=512,
-                    stop=["<|im_end|>", "<|endoftext|>", "<|eot_id|>", "</s>", "[/INST]", "[INST]", "<|EOT|>", "<>", "[INPUT]"] 
+                    temperature=0.15,      # Memberikan sedikit variasi untuk menghindari looping
+                    max_tokens=600,        # Membatasi output maksimum
+                    repeat_penalty=1.1,    # Penalti repetisi ringan
+                    stop=UNIVERSAL_STOP_TOKENS 
                 )
                 
-                jawaban_mentah = response['choices'][0]['message']['content']
+                jawaban_mentah = response['choices'][0]['message']['content'].strip()
                 for token in ["[INST]", "[/INST]", "<>", "[INPUT]", "###", "User:", "<|eot_id|>"]:
-                    if token in jawaban_mentah: jawaban_mentah = jawaban_mentah.split(token)[0] 
+                    if token in jawaban_mentah: 
+                        jawaban_mentah = jawaban_mentah.split(token)[0] 
                 
                 jawaban_bersih = jawaban_mentah.strip()
-                jawaban_untuk_hakim.append(f"Jawaban {model['name']}:\n{jawaban_bersih}\n")
+                
+                # --- PELINDUNG MEMORI HAKIM (TRUNCATION) ---
+                # UI tetap menampilkan teks penuh untuk user, 
+                # tetapi Hakim hanya membaca maksimal 1000 karakter agar memori (2048 token) aman.
+                teks_untuk_hakim = jawaban_bersih
+                if len(teks_untuk_hakim) > 1000:
+                    teks_untuk_hakim = teks_untuk_hakim[:1000] + "\n...[Teks dipotong oleh sistem untuk menghemat memori]..."
+                
+                jawaban_untuk_hakim.append(f"Jawaban {model['name']}:\n{teks_untuk_hakim}\n")
                 
                 laporan_benchmark["hasil_pekerja"].append({"nama_model": model['name'], "jawaban": jawaban_bersih})
 
             except Exception as e:
                 laporan_benchmark["hasil_pekerja"].append({"nama_model": model['name'], "jawaban": f"*Gagal memproses: {str(e)}*"})
 
+        # B. Eksekusi Juri (Hakim 7B)
+        kriteria_tambahan = "Pilih yang paling akurat, efisien, dan rapi."
+        if benchmark_task == "Bug Fixer":
+            kriteria_tambahan = "PENTING: Kode dari user PASTI MENGANDUNG BUG. Model yang mengatakan 'tidak ada error' adalah SALAH BESAR. Pemenang adalah model yang berhasil menemukan bug dan memperbaikinya."
+        elif benchmark_task == "Explainer":
+            kriteria_tambahan = "Pemenang adalah model yang penjelasannya paling mudah dipahami dan tidak berulang-ulang (looping)."
+        elif benchmark_task == "Generate Code":
+            kriteria_tambahan = "Pemenang adalah model yang kodenya paling bersih dan bebas dari halusinasi."
+
+        # Modifikasi prompt agar Juri WAJIB mendeklarasikan nama pemenang dengan format khusus
         judge_prompt = (
-            f"Kamu adalah Dosen Pemrograman (Hakim Independen). Evaluasi 3 jawaban asisten AI ini untuk instruksi kode {bahasa}. "
-            f"Pilih satu yang paling akurat, efisien, dan rapi. Berikan alasan singkat.\n"
-            f"ATURAN MUTLAK: Di akhir kalimat, WAJIB menuliskan format ini (pilih salah satu): "
-            f"[WINNER: DeepSeek Coder 1.3B] atau [WINNER: Qwen2.5 Coder 3B] atau [WINNER: Llama 3.2 3B]\n\n"
-            f"Kumpulan Jawaban:\n" + "\n".join(jawaban_untuk_hakim)
+            f"Kamu adalah Dosen Pemrograman (Hakim Independen). Evaluasi 3 jawaban asisten AI ini untuk instruksi kode {bahasa} berikut:\n"
+            f"[Instruksi Asli]: {kode[:500]}...\n\n"
+            f"{kriteria_tambahan}\n\n"
+            f"Berikut adalah evaluasi performa model:\n"
+            f"{''.join(jawaban_untuk_hakim)}\n"
+            f"Berdasarkan data di atas, tentukan pemenangnya. WAJIB tuliskan di baris pertama format berikut: 'PEMENANG: [Nama Model]'. Kemudian berikan alasan singkatmu di baris berikutnya."
         )
 
         try:
             llm_judge = get_llm(MODEL_JUDGE)
             response_judge = llm_judge.create_chat_completion(
-                messages=[{"role": "system", "content": "Kamu adalah Juri objektif untuk kompetisi pemecahan kode."}, {"role": "user", "content": judge_prompt}],
-                temperature=0.1, max_tokens=512
+                messages=[{"role": "system", "content": "Kamu adalah Juri objektif yang tegas."}, {"role": "user", "content": judge_prompt}],
+                temperature=0.1, # Turunkan temperature agar output format pemenang lebih konsisten
+                max_tokens=1024,
+                stop=UNIVERSAL_STOP_TOKENS
             )
-            laporan_benchmark["penilaian_hakim"] = response_judge['choices'][0]['message']['content']
+            
+            teks_penilaian = response_judge['choices'][0]['message']['content'].strip()
+            laporan_benchmark["penilaian_hakim"] = teks_penilaian
+
+            # --- EKSTRAKSI PEMENANG UNTUK OUTLINE HIJAU ---
+            pemenang_terdeteksi = "Tidak ada"
+            baris_penilaian = teks_penilaian.split('\n')
+            
+            for baris in baris_penilaian:
+                if "PEMENANG:" in baris.upper():
+                    kandidat_pemenang = baris.split(":", 1)[1].strip()
+                    # Cek model mana yang namanya ada di kalimat pemenang
+                    for model in MODELS_BENCHMARK:
+                        if model['name'].lower() in kandidat_pemenang.lower():
+                            pemenang_terdeteksi = model['name']
+                            break
+                    break # Berhenti mencari setelah baris PEMENANG ditemukan
+            
+            # Tambahkan data pemenang ke JSON untuk ditangkap oleh Frontend
+            laporan_benchmark["pemenang_benchmark"] = pemenang_terdeteksi
+
         except Exception as e:
             laporan_benchmark["penilaian_hakim"] = f"*Hakim gagal menilai: {str(e)}*"
+            laporan_benchmark["pemenang_benchmark"] = "Error"
 
         return laporan_benchmark
 

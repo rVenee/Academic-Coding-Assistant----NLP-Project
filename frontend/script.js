@@ -6,15 +6,35 @@ async function analyzeCode() {
     const modeElement = document.getElementById('modeSelect');
     const langElement = document.getElementById('langSelect');
     const modelSelect = document.getElementById('modelSelect'); // Ambil Data Dropdown AI
+    const benchmarkTaskSelect = document.getElementById('benchmarkTaskSelect');
     
     const mode = modeElement ? modeElement.value : "Bug Fixer";
     const bahasa = langElement ? langElement.value : "C++";
     const modelPilihan = modelSelect ? modelSelect.value : "qwen2.5-coder-3b-instruct-q4_k_m.gguf";
+    const benchmarkTask = benchmarkTaskSelect ? benchmarkTaskSelect.value : "Bug Fixer";
     
     const userPromptArea = document.getElementById('userPromptText');
     
     if (!code.trim()) {
         alert("Silakan masukkan kode atau instruksi terlebih dahulu!");
+        return;
+    }
+
+    let MAX_CHARS = 3000; // Batas wajar untuk fitur dasar (1 AI)
+    
+    // Jika masuk mode kompetisi (4 AI sekaligus), ketatkan sabuk pengaman!
+    if (mode === "Benchmarking") {
+        MAX_CHARS = 1200;
+    }
+
+    if (code.length > MAX_CHARS) {
+        let pesan = `⚠️ Teks terlalu panjang! Maksimal ${MAX_CHARS} karakter untuk mode ${mode}.\nTeks Anda saat ini: ${code.length} karakter.`;
+        
+        if (mode === "Benchmarking") {
+            pesan += `\n\n💡 Tips Benchmarking: Masukkan potongan fungsi yang spesifik saja untuk menghemat memori Juri AI.`;
+        }
+        
+        alert(pesan);
         return;
     }
 
@@ -45,7 +65,8 @@ async function analyzeCode() {
                 mode: mode,
                 bahasa: bahasa,
                 kode: code,
-                nama_file_model: modelPilihan // Kirim AI Pilihan ke Python
+                nama_file_model: modelPilihan,
+                benchmark_task: benchmarkTask // KIRIM KE PYTHON
             })
         });
 
@@ -106,20 +127,21 @@ function renderBenchmarking(data, container) {
     container.appendChild(judgeDiv);
 
     // Deteksi Tag Pemenang dan Beri Warna Hijau
-    const judgeText = data.penilaian_hakim;
-    const winnerMatch = judgeText.match(/\[WINNER:\s*(.*?)\]/i);
-    
-    if (winnerMatch && winnerMatch[1]) {
-        let winnerName = winnerMatch[1].replace(/Jawaban\s/ig, '').trim();
-        let winnerId = 'model-' + winnerName.replace(/\s+/g, '-');
+    const pemenang = data.pemenang_benchmark; 
+
+    if (pemenang && pemenang !== "Tidak ada" && pemenang !== "Error") {
+        // Cocokkan format ID dengan saat pembuatan div model di atas
+        let winnerId = 'model-' + pemenang.replace(/\s+/g, '-');
         let winnerDiv = document.getElementById(winnerId);
         
         if (winnerDiv) {
             winnerDiv.classList.add('winner-highlight');
             winnerDiv.innerHTML = '<div class="winner-badge"><i class="fas fa-trophy"></i> TERBAIK</div>' + winnerDiv.innerHTML;
         }
-        // Hapus Tag rahasianya dari teks Hakim
-        judgeDiv.innerHTML = judgeDiv.innerHTML.replace(/\[WINNER:\s*.*?\]/gi, '');
+        
+        // (Opsional) Bersihkan teks deklarasi "PEMENANG: ..." dari tampilan Hakim agar UI lebih rapi
+        judgeDiv.innerHTML = judgeDiv.innerHTML.replace(/PEMENANG:.*?<\/p>/i, '</p>');
+        judgeDiv.innerHTML = judgeDiv.innerHTML.replace(/PEMENANG:.*?(<br>|\n)/i, '');
     }
 }
 
@@ -137,6 +159,7 @@ function toggleTheme() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Logika Tema
     const savedTheme = localStorage.getItem('theme');
     const themeBtn = document.getElementById('themeToggleBtn');
     if (savedTheme === 'light') {
@@ -144,17 +167,40 @@ document.addEventListener('DOMContentLoaded', () => {
         if(themeBtn) themeBtn.innerHTML = '<i class="fas fa-moon"></i> Dark Mode';
     }
     
+    // Logika Dinamis Dropdown & Placeholder
     const modeSelect = document.getElementById('modeSelect');
+    const modelSelect = document.getElementById('modelSelect'); // Ambil elemen dropdown AI
     const codeInput = document.getElementById('codeInput');
     
     if (modeSelect && codeInput) {
         modeSelect.addEventListener('change', (e) => {
-            if (e.target.value === "Generate Code") {
-                codeInput.placeholder = "Contoh: Buatkan fungsi kalkulator sederhana dengan validasi input...";
-            } else if (e.target.value === "Benchmarking") {
-                codeInput.placeholder = "Masukkan instruksi tantangan algoritma untuk diuji oleh 3 model...";
+            const selectedMode = e.target.value;
+            const benchmarkGroup = document.getElementById('benchmarkTaskGroup');
+            
+            // Ubah Placeholder
+            if (selectedMode === "Generate Code") {
+                codeInput.placeholder = "Contoh: Buatkan fungsi kalkulator sederhana...";
+            } else if (selectedMode === "Benchmarking") {
+                codeInput.placeholder = "Masukkan instruksi/kode untuk diuji oleh ke-3 model...";
             } else {
                 codeInput.placeholder = "Paste (Tempel) kode Anda di sini...";
+            }
+            
+            // UX Logika Benchmarking
+            if (selectedMode === "Benchmarking") {
+                if(modelSelect) {
+                    modelSelect.disabled = true;
+                    modelSelect.style.opacity = '0.4';
+                }
+                // Tampilkan opsi tugas Benchmarking
+                if(benchmarkGroup) benchmarkGroup.style.display = 'flex'; 
+            } else {
+                if(modelSelect) {
+                    modelSelect.disabled = false;
+                    modelSelect.style.opacity = '1';
+                }
+                // Sembunyikan opsi tugas
+                if(benchmarkGroup) benchmarkGroup.style.display = 'none';
             }
         });
     }

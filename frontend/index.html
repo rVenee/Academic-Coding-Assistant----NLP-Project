@@ -1,106 +1,105 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Academic Coding Assistant</title>  
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🤖%3C/text%3E%3C/svg%3E">
+    <title>Academic Coding Assistant</title>
+    <link rel="icon" href="/static/logo2.png" type="image/png">
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-</head>
 <body>
     <div class="app-container">
-        <!-- Sidebar -->
-        <aside class="sidebar">
+        
+        <header class="top-navbar">
             <div class="logo">
-                <i class="fas fa-robot"></i>
-                <div>
+                <img src="/static/logo2.png" alt="ACA Logo" class="logo-dark-theme">
+                <img src="/static/logo1.png" alt="ACA Logo" class="logo-light-theme">
+                <div class="logo-text">
                     <span class="title">Academic</span>
                     <span class="subtitle">Coding Assistant</span>
                 </div>
             </div>
-            <nav>
-                <div class="nav-item"><i class="fas fa-home"></i> Home</div>
-                <div class="nav-item active"><i class="fas fa-bug"></i> Bug Fixer</div>
-            </nav>
-            <div class="sidebar-footer">
-                <div class="nav-item" id="themeToggleBtn" onclick="toggleTheme()">
-                    <i class="fas fa-sun"></i> Light Mode
+
+            <div class="navbar-controls">
+                <select id="modelSelect" title="Pilih AI Engine">
+                    <option value="qwen2.5-coder-3b-instruct-q4_k_m.gguf">Qwen2.5 3B (Rekomendasi)</option>
+                    <option value="llama-3.2-3b-instruct-q4_k_m.gguf">Llama 3.2 3B</option>
+                    <option value="deepseek-coder-1.3b-instruct.Q4_K_M.gguf">DeepSeek 1.3B</option>
+                </select>
+
+                <select id="modeSelect" title="Pilih Mode Tugas">
+                    <option value="Bug Fixer">Bug Fixer</option>
+                    <option value="Explainer">Explainer</option>
+                    <option value="Generate Code">Generate Code</option>
+                    <option value="Benchmarking">Benchmarking (Judge)</option>
+                </select>
+
+                <div id="benchmarkTaskGroup" style="display: none;">
+                    <select id="benchmarkTaskSelect">
+                        <option value="Bug Fixer">Perbaiki Bug</option>
+                        <option value="Explainer">Jelaskan Kode</option>
+                        <option value="Generate Code">Buat Kode</option>
+                    </select>
                 </div>
+
+                <select id="langSelect" title="Pilih Bahasa">
+                    <option value="Python">Python</option>
+                    <option value="C++">C++</option>
+                    <option value="JavaScript">JavaScript</option>
+                </select>
             </div>
-        </aside>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <header class="content-header">
-                <h2>Bug Fixer & Explain This Code</h2>
-                <div class="controls">
-                    <div class="input-group">
-                        <label>Pilih Mode</label>
-                        <!-- PERUBAHAN: Menambahkan id="modeSelect" -->
-                        <select id="modeSelect">
-                            <option value="Bug Fixer">Bug Fixer</option>
-                            <option value="Explainer">Explainer</option>
-                            <option value="Generate Code">Generate Code</option>
-                            <option value="Benchmarking">Benchmarking (Judge)</option>
-                        </select>
-                    </div>
-                    <div class="input-group">
-                        <label>Pilih Bahasa</label>
-                        <!-- PERUBAHAN: Menambahkan id="langSelect" -->
-                        <select id="langSelect">
-                            <option>C++</option>
-                            <option>Python</option>
-                            <option>JavaScript</option>
-                        </select>
-                    </div>
+            <div class="navbar-actions">
+                <button id="themeToggleBtn" onclick="toggleTheme()" class="btn-theme">
+                    <i class="fas fa-sun"></i> Light Mode
+                </button>
+            </div>
+        </header>
+
+        <main class="workspace">
+            
+            <section class="panel-left">
+                <div class="panel-header">
+                    <i class="fas fa-code"></i> Editor Kode
                 </div>
-            </header>
-
-            <section class="editor-section">
-                <div class="code-editor">
-                    <textarea id="codeInput" placeholder="// Masukkan kode Anda di sini...">// Segmentation Fault Example
-int* ptr;
-*ptr = 10;</textarea>
-                    <button class="btn-analyze" onclick="analyzeCode()">
-                        <i class="fas fa-sparkles"></i> Analisis Kode
+                
+                <div class="editor-wrapper">
+                    <textarea id="codeInput" placeholder="Ketik deskripsi atau paste kode Anda di sini untuk mulai..."></textarea>
+                    
+                    <button class="btn-analyze" onclick="analyzeCode()" title="Jalankan AI">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                            <path d="M3.478 2.404a.75.75 0 00-.926.941l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.404z"></path>
+                        </svg>
                     </button>
                 </div>
+                
+                <div class="footer-info">
+                    Model Engine: <strong>Llama.cpp Local</strong> &nbsp;|&nbsp; Status: <span style="color: #10b981;">Connected</span>
+                </div>
+            </section>
 
+            <section class="panel-right">
+                <div class="panel-header">
+                    <i class="fas fa-terminal"></i> Terminal AI
+                </div>
+                
                 <div class="chat-section">
-                    <!-- User Prompt -->
-                    <div class="chat-bubble user">
-                        <div class="bubble-header"><i class="fas fa-user-circle"></i> User</div>
-                        <p id="userPromptText">Menunggu instruksi...</p>
-                    </div>
-
-                    <!-- AI Response -->
-                    <div class="chat-bubble ai">
-                        <div class="bubble-header"><i class="fas fa-robot"></i> AI Markdown</div>
-                        <div id="aiResponse">
-                            <p>Kode Anda mengalami <strong>Segmentation Fault</strong> karena mencoba menulis nilai ke lokasi memori acak.</p>
-                            <p><strong>Perbaikannya:</strong> Alokasikan memori sebelum digunakan.</p>
-                            <div class="code-block">
-                                <pre>int* ptr = new int;<br>*ptr = 10;</pre>
-                                <i class="far fa-copy copy-btn"></i>
-                            </div>
+                    <p id="userPromptText" style="display: none;"></p>
+                    
+                    <div id="aiResponse">
+                        <div class="empty-state">
+                            <i class="fas fa-laptop-code" style="font-size: 3rem; color: var(--border-color); margin-bottom: 15px;"></i>
+                            <p style="color: var(--text-dim); font-size: 15px;">Ruang kerja siap.<br>Hasil analisis AI akan muncul secara mendetail di sini.</p>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <!-- Footer Info -->
-            <footer class="app-footer">
-                <span>Model: <strong>Qwen2.5-Coder-7B (GGUF)</strong></span>
-                <span id="contextIndicator">Context: [||||||||--] 0 / 4096 tokens</span>
-                <span>API Status: Connected to Localhost</span>
-            </footer>
         </main>
     </div>
+    
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-
     <script src="/static/script.js"></script>
 </body>
 </html>
