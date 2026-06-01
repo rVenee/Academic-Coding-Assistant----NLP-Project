@@ -39,14 +39,26 @@ async function analyzeCode() {
     }
 
     if (userPromptArea) {
+        // 1. Munculkan elemen ke layar
+        userPromptArea.style.display = 'block'; 
+        
+        // 2. Tambahkan sedikit styling agar terlihat seperti kotak instruksi yang rapi
+        userPromptArea.style.padding = '12px 15px';
+        userPromptArea.style.backgroundColor = 'rgba(59, 130, 246, 0.1)'; // Background biru transparan
+        userPromptArea.style.borderLeft = '4px solid var(--accent-blue)';
+        userPromptArea.style.marginBottom = '20px';
+        userPromptArea.style.borderRadius = '6px';
+        userPromptArea.style.fontSize = '13.5px';
+
+        // 3. Set teks instruksinya
         if (mode === "Bug Fixer") {
-            userPromptArea.innerText = `Tolong analisis dan perbaiki error pada kode ${bahasa} ini.`;
+            userPromptArea.innerHTML = `💡 <strong>Misi:</strong> Tolong analisis dan perbaiki error pada kode <strong>${bahasa}</strong> ini.`;
         } else if (mode === "Explainer") {
-            userPromptArea.innerText = `Tolong jelaskan alur logika dari kode ${bahasa} ini.`;
+            userPromptArea.innerHTML = `💡 <strong>Misi:</strong> Tolong jelaskan alur logika dari kode <strong>${bahasa}</strong> ini.`;
         } else if (mode === "Generate Code") {
-            userPromptArea.innerText = `Buatkan kode ${bahasa} berdasarkan deskripsi berikut.`;
+            userPromptArea.innerHTML = `💡 <strong>Misi:</strong> Buatkan kode <strong>${bahasa}</strong> berdasarkan deskripsi berikut.`;
         } else if (mode === "Benchmarking") {
-            userPromptArea.innerText = `Jalankan Benchmarking (3 Model + 1 Judge) untuk instruksi ${bahasa} ini. (Sabar ya, butuh waktu...)`;
+            userPromptArea.innerHTML = `💡 <strong>Misi:</strong> Jalankan Benchmarking otomatis untuk instruksi <strong>${bahasa}</strong> ini.`;
         }
     }
 

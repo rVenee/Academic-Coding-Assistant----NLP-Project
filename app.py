@@ -1,4 +1,8 @@
 import gc
+import ast
+import os
+import tempfile
+import subprocess
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -30,7 +34,7 @@ def get_llm(model_path):
 MODEL_JUDGE = "models/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf"
 
 MODELS_BENCHMARK = [
-    {"name": "DeepSeek Coder 1.3B", "path": "models/deepseek-coder-1.3b-instruct.Q4_K_M.gguf"},
+    {"name": "IBM Granite 2B", "path": "models/granite-3.0-2b-instruct-Q4_K_M.gguf"},
     {"name": "Qwen2.5 Coder 3B", "path": "models/qwen2.5-coder-3b-instruct-q4_k_m.gguf"},
     {"name": "Llama 3.2 3B", "path": "models/llama-3.2-3b-instruct-q4_k_m.gguf"}
 ]
@@ -57,19 +61,87 @@ async def chat_endpoint(request: Request):
     nama_file_model = data.get("nama_file_model", "qwen2.5-coder-3b-instruct-q4_k_m.gguf")
     benchmark_task = data.get("benchmark_task", "Bug Fixer")
 
-    print(f"\n>>> Request Masuk: Mode [{mode}] | Bahasa [{bahasa}] | Model [{nama_file_model}]")
+    # --- MODIFIKASI LOG TERMINAL DI SINI ---
+    if mode == "Benchmarking":
+        print(f"\n>>> Request Masuk: Mode [{mode}] | Bahasa [{bahasa}] | Task [{benchmark_task}] -> (Menguji 3 Model)")
+    else:
+        print(f"\n>>> Request Masuk: Mode [{mode}] | Bahasa [{bahasa}] | Model [{nama_file_model}]")
+
+    # =========================================================================
+    # --- SATPAM CERDAS: PRE-CHECKING KHUSUS EXPLAINER ---
+    # =========================================================================
+    is_explainer = (mode == "Explainer") or (mode == "Benchmarking" and benchmark_task == "Explainer")
+    
+    if is_explainer:
+        error_msg = None
+        
+        # 1. Cek Sintaks Python
+        if bahasa == "Python":
+            try:
+                ast.parse(kode)
+            except SyntaxError as e:
+                error_msg = f"Baris {e.lineno}: {e.msg}"
+                
+        # 2. Cek Sintaks JavaScript (Membutuhkan Node.js terinstal)
+        elif bahasa == "JavaScript": 
+            # Buat file sementara untuk dicek oleh Node
+            with tempfile.NamedTemporaryFile(suffix=".js", delete=False) as temp_js:
+                temp_js.write(kode.encode('utf-8'))
+                temp_js_path = temp_js.name
+                
+            try:
+                # Jalankan node -c (check only)
+                result = subprocess.run(['node', '-c', temp_js_path], capture_output=True, text=True)
+                if result.returncode != 0:
+                    error_msg = result.stderr.strip().split('\n')[0] # Ambil baris error pertama
+            finally:
+                os.remove(temp_js_path) # Bersihkan file sementara
+                
+        # 3. Cek Sintaks C++ (Membutuhkan g++ terinstal)
+        elif bahasa == "C++":
+            with tempfile.NamedTemporaryFile(suffix=".cpp", delete=False) as temp_cpp:
+                temp_cpp.write(kode.encode('utf-8'))
+                temp_cpp_path = temp_cpp.name
+                
+            try:
+                # Jalankan g++ -fsyntax-only
+                result = subprocess.run(['g++', '-fsyntax-only', temp_cpp_path], capture_output=True, text=True)
+                if result.returncode != 0:
+                    error_msg = result.stderr.strip().split('\n')[0]
+            finally:
+                os.remove(temp_cpp_path)
+
+        # Jika ada error dari salah satu bahasa, cegat langsung!
+        if error_msg:
+            print(f"🛑 [SATPAM CERDAS] Mencegat eksekusi! Ditemukan Syntax Error pada {bahasa}.")
+            pesan_cegatan = (
+                f"⚠️ **Sistem mendeteksi Syntax Error pada kode {bahasa} Anda!**\n\n"
+                f"**Detail:** `{error_msg}`\n\n"
+                f"💡 *Sistem menolak menjelaskan tata bahasa kode yang rusak. Silakan gunakan mode **Bug Fixer** terlebih dahulu untuk memperbaikinya.*"
+            )
+            return {"status": "success", "mode": "Interupsi", "data": pesan_cegatan}
 
     # =========================================================================
     # 1. MODE REGULER (Bug Fixer, Explainer, Generate Code)
     # =========================================================================
     if mode != "Benchmarking":
-        # Prompt yang dioptimalkan agar tidak memicu sifat paranoid LLM
         if mode == "Bug Fixer":
-            system_prompt = f"Kamu adalah asisten pemrograman. Analisis dan perbaiki error pada kode {bahasa} berikut. Berikan solusi dan penjelasan singkat."
+            system_prompt = (
+                f"Kamu adalah asisten pemrograman akademik yang objektif. Analisis dan perbaiki error pada kode {bahasa} berikut.\n"
+                f"WAJIB JAWAB DALAM BAHASA INDONESIA yang baku dan rapi.\n"
+                f"Fokus pada perbaikan logika yang benar. Jangan mengulang-ulang kalimat penjelasan yang sama."
+            )
         elif mode == "Explainer":
-            system_prompt = f"Kamu adalah asisten pengajar. Jelaskan cara kerja dan alur logika dari kode {bahasa} berikut secara singkat dan rapi. Jangan mencari error, fokus pada penjelasan logika."
+            system_prompt = (
+                f"Kamu adalah asisten pengajar Ilmu Komputer. Jelaskan cara kerja dan alur logika dari kode {bahasa} berikut.\n"
+                f"WAJIB JAWAB DALAM BAHASA INDONESIA secara singkat, padat, menggunakan poin-poin (bullet points).\n"
+                f"Fokus pada penjelasan alur data, jangan mencari error."
+            )
         elif mode == "Generate Code":
-            system_prompt = f"Kamu adalah developer ahli. Buatkan kode {bahasa} berdasarkan instruksi berikut menggunakan best practices."
+            system_prompt = (
+                f"Kamu adalah developer software ahli. Buatkan kode {bahasa} berdasarkan instruksi berikut menggunakan best practices.\n"
+                f"Tuliskan komentar penjelasan kode langsung di dalam baris kode (inline comment) menggunakan BAHASA INDONESIA."
+            )
 
         path_dinamis = f"models/{nama_file_model}"
         llm = get_llm(path_dinamis)
@@ -79,7 +151,10 @@ async def chat_endpoint(request: Request):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": f"```{bahasa}\n{kode}\n```"}
                 ],
-                temperature=0.0,         
+                temperature=0.1,
+                repeat_penalty=1.05,
+                frequency_penalty=0.0,
+                presence_penalty=0.1,         
                 max_tokens=1024,    
                 stop=UNIVERSAL_STOP_TOKENS
             )
