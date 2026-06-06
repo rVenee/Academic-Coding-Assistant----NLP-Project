@@ -11,7 +11,7 @@ import uvicorn
 
 app = FastAPI()
 
-# --- MANAJEMEN MEMORI ---
+#MANAJEMEN MEMORI
 global_llm = None
 current_model_path = ""
 
@@ -24,13 +24,12 @@ def get_llm(model_path):
             gc.collect()    
             
         print(f"⏳ [SYSTEM] Memuat model baru: {model_path}...")
-        # n_ctx dikunci di 2048 agar aman untuk RAM lokal
         global_llm = Llama(model_path=model_path, n_ctx=2048, n_gpu_layers=-1, verbose=False)
         current_model_path = model_path
         print("✅ [SYSTEM] Model berhasil dimuat!")
     return global_llm
 
-# --- DAFTAR MODEL ---
+#DAFTAR MODEL
 MODEL_JUDGE = "models/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf"
 
 MODELS_BENCHMARK = [
@@ -39,7 +38,6 @@ MODELS_BENCHMARK = [
     {"name": "Llama 3.2 3B", "path": "models/llama-3.2-3b-instruct-q4_k_m.gguf"}
 ]
 
-# Daftar Stop Token Komprehensif (Mencegah LLM membocorkan tag internal / looping)
 UNIVERSAL_STOP_TOKENS = [
     "<|im_end|>", "<|endoftext|>", "<|eot_id|>", "</s>", 
     "[/INST]", "[INST]", "<|EOT|>", "<>", "[INPUT]", "```\n\n",
@@ -61,15 +59,12 @@ async def chat_endpoint(request: Request):
     nama_file_model = data.get("nama_file_model", "qwen2.5-coder-3b-instruct-q4_k_m.gguf")
     benchmark_task = data.get("benchmark_task", "Bug Fixer")
 
-    # --- MODIFIKASI LOG TERMINAL DI SINI ---
     if mode == "Benchmarking":
         print(f"\n>>> Request Masuk: Mode [{mode}] | Bahasa [{bahasa}] | Task [{benchmark_task}] -> (Menguji 3 Model)")
     else:
         print(f"\n>>> Request Masuk: Mode [{mode}] | Bahasa [{bahasa}] | Model [{nama_file_model}]")
 
-    # =========================================================================
-    # --- SATPAM CERDAS: PRE-CHECKING KHUSUS EXPLAINER ---
-    # =========================================================================
+    # PRE-CHECKING KHUSUS EXPLAINER
     is_explainer = (mode == "Explainer") or (mode == "Benchmarking" and benchmark_task == "Explainer")
     
     if is_explainer:
@@ -82,36 +77,33 @@ async def chat_endpoint(request: Request):
             except SyntaxError as e:
                 error_msg = f"Baris {e.lineno}: {e.msg}"
                 
-        # 2. Cek Sintaks JavaScript (Membutuhkan Node.js terinstal)
+        # 2. Cek Sintaks JavaScript
         elif bahasa == "JavaScript": 
-            # Buat file sementara untuk dicek oleh Node
             with tempfile.NamedTemporaryFile(suffix=".js", delete=False) as temp_js:
                 temp_js.write(kode.encode('utf-8'))
                 temp_js_path = temp_js.name
                 
             try:
-                # Jalankan node -c (check only)
                 result = subprocess.run(['node', '-c', temp_js_path], capture_output=True, text=True)
                 if result.returncode != 0:
-                    error_msg = result.stderr.strip().split('\n')[0] # Ambil baris error pertama
+                    error_msg = result.stderr.strip().split('\n')[0]
             finally:
-                os.remove(temp_js_path) # Bersihkan file sementara
+                os.remove(temp_js_path)
                 
-        # 3. Cek Sintaks C++ (Membutuhkan g++ terinstal)
+        # 3. Cek Sintaks C++
         elif bahasa == "C++":
             with tempfile.NamedTemporaryFile(suffix=".cpp", delete=False) as temp_cpp:
                 temp_cpp.write(kode.encode('utf-8'))
                 temp_cpp_path = temp_cpp.name
                 
             try:
-                # Jalankan g++ -fsyntax-only
                 result = subprocess.run(['g++', '-fsyntax-only', temp_cpp_path], capture_output=True, text=True)
                 if result.returncode != 0:
                     error_msg = result.stderr.strip().split('\n')[0]
             finally:
                 os.remove(temp_cpp_path)
 
-        # Jika ada error dari salah satu bahasa, cegat langsung!
+        # Jika ada error dari salah satu bahasa
         if error_msg:
             print(f"🛑 [SATPAM CERDAS] Mencegat eksekusi! Ditemukan Syntax Error pada {bahasa}.")
             pesan_cegatan = (
@@ -121,9 +113,7 @@ async def chat_endpoint(request: Request):
             )
             return {"status": "success", "mode": "Interupsi", "data": pesan_cegatan}
 
-    # =========================================================================
     # 1. MODE REGULER (Bug Fixer, Explainer, Generate Code)
-    # =========================================================================
     if mode != "Benchmarking":
         if mode == "Bug Fixer":
             system_prompt = (
@@ -160,7 +150,6 @@ async def chat_endpoint(request: Request):
             )
             
             jawaban = response['choices'][0]['message']['content'].strip()
-            # Failsafe: Hapus tag aneh jika bocor
             for token in ["[INST]", "[/INST]", "###", "User:"]:
                 if token in jawaban:
                     jawaban = jawaban.split(token)[0].strip()
@@ -170,11 +159,8 @@ async def chat_endpoint(request: Request):
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
-    # =========================================================================
     # 2. MODE BENCHMARKING (3 Pekerja + 1 Hakim)
-    # =========================================================================
     else:
-        # --- KITA PINDAHKAN LOGIKA PROMPT KE SINI (DI LUAR LOOP) ---
         if benchmark_task == "Bug Fixer":
             sys_prompt = f"Perbaiki error pada kode {bahasa} berikut. Langsung berikan kode yang benar dan penjelasan singkat."
             label_instruksi = f"🎯 [Misi: Perbaiki Bug]\nTolong perbaiki dan jelaskan kode {bahasa} berikut:\n\n{kode}"
@@ -192,7 +178,7 @@ async def chat_endpoint(request: Request):
             "status": "success", 
             "mode": "Benchmarking", 
             "bahasa": bahasa, 
-            "kode_instruksi": label_instruksi, # <--- SEKARANG MENGGUNAKAN LABEL RAPI
+            "kode_instruksi": label_instruksi,
             "hasil_pekerja": [], 
             "penilaian_hakim": ""
         }
@@ -209,9 +195,9 @@ async def chat_endpoint(request: Request):
                         {"role": "system", "content": sys_prompt},
                         {"role": "user", "content": kode}
                     ],
-                    temperature=0.15,      # Memberikan sedikit variasi untuk menghindari looping
-                    max_tokens=600,        # Membatasi output maksimum
-                    repeat_penalty=1.1,    # Penalti repetisi ringan
+                    temperature=0.15,
+                    max_tokens=600,
+                    repeat_penalty=1.1,
                     stop=UNIVERSAL_STOP_TOKENS 
                 )
                 
@@ -222,9 +208,7 @@ async def chat_endpoint(request: Request):
                 
                 jawaban_bersih = jawaban_mentah.strip()
                 
-                # --- PELINDUNG MEMORI HAKIM (TRUNCATION) ---
-                # UI tetap menampilkan teks penuh untuk user, 
-                # tetapi Hakim hanya membaca maksimal 1000 karakter agar memori (2048 token) aman.
+                # PELINDUNG MEMORI HAKIM (TRUNCATION)
                 teks_untuk_hakim = jawaban_bersih
                 if len(teks_untuk_hakim) > 1000:
                     teks_untuk_hakim = teks_untuk_hakim[:1000] + "\n...[Teks dipotong oleh sistem untuk menghemat memori]..."
@@ -245,7 +229,6 @@ async def chat_endpoint(request: Request):
         elif benchmark_task == "Generate Code":
             kriteria_tambahan = "Pemenang adalah model yang kodenya paling bersih dan bebas dari halusinasi."
 
-        # Modifikasi prompt agar Juri WAJIB mendeklarasikan nama pemenang dengan format khusus
         judge_prompt = (
             f"Kamu adalah Dosen Pemrograman (Hakim Independen). Evaluasi 3 jawaban asisten AI ini untuk instruksi kode {bahasa} berikut:\n"
             f"[Instruksi Asli]: {kode[:500]}...\n\n"
@@ -259,7 +242,7 @@ async def chat_endpoint(request: Request):
             llm_judge = get_llm(MODEL_JUDGE)
             response_judge = llm_judge.create_chat_completion(
                 messages=[{"role": "system", "content": "Kamu adalah Juri objektif yang tegas."}, {"role": "user", "content": judge_prompt}],
-                temperature=0.1, # Turunkan temperature agar output format pemenang lebih konsisten
+                temperature=0.1,
                 max_tokens=1024,
                 stop=UNIVERSAL_STOP_TOKENS
             )
@@ -267,21 +250,18 @@ async def chat_endpoint(request: Request):
             teks_penilaian = response_judge['choices'][0]['message']['content'].strip()
             laporan_benchmark["penilaian_hakim"] = teks_penilaian
 
-            # --- EKSTRAKSI PEMENANG UNTUK OUTLINE HIJAU ---
             pemenang_terdeteksi = "Tidak ada"
             baris_penilaian = teks_penilaian.split('\n')
             
             for baris in baris_penilaian:
                 if "PEMENANG:" in baris.upper():
                     kandidat_pemenang = baris.split(":", 1)[1].strip()
-                    # Cek model mana yang namanya ada di kalimat pemenang
                     for model in MODELS_BENCHMARK:
                         if model['name'].lower() in kandidat_pemenang.lower():
                             pemenang_terdeteksi = model['name']
                             break
-                    break # Berhenti mencari setelah baris PEMENANG ditemukan
+                    break
             
-            # Tambahkan data pemenang ke JSON untuk ditangkap oleh Frontend
             laporan_benchmark["pemenang_benchmark"] = pemenang_terdeteksi
 
         except Exception as e:

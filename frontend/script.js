@@ -5,7 +5,7 @@ async function analyzeCode() {
     
     const modeElement = document.getElementById('modeSelect');
     const langElement = document.getElementById('langSelect');
-    const modelSelect = document.getElementById('modelSelect'); // Ambil Data Dropdown AI
+    const modelSelect = document.getElementById('modelSelect');
     const benchmarkTaskSelect = document.getElementById('benchmarkTaskSelect');
     
     const mode = modeElement ? modeElement.value : "Bug Fixer";
@@ -20,9 +20,8 @@ async function analyzeCode() {
         return;
     }
 
-    let MAX_CHARS = 3000; // Batas wajar untuk fitur dasar (1 AI)
+    let MAX_CHARS = 3000;
     
-    // Jika masuk mode kompetisi (4 AI sekaligus), ketatkan sabuk pengaman!
     if (mode === "Benchmarking") {
         MAX_CHARS = 1200;
     }
@@ -39,18 +38,14 @@ async function analyzeCode() {
     }
 
     if (userPromptArea) {
-        // 1. Munculkan elemen ke layar
         userPromptArea.style.display = 'block'; 
-        
-        // 2. Tambahkan sedikit styling agar terlihat seperti kotak instruksi yang rapi
         userPromptArea.style.padding = '12px 15px';
-        userPromptArea.style.backgroundColor = 'rgba(59, 130, 246, 0.1)'; // Background biru transparan
+        userPromptArea.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
         userPromptArea.style.borderLeft = '4px solid var(--accent-blue)';
         userPromptArea.style.marginBottom = '20px';
         userPromptArea.style.borderRadius = '6px';
         userPromptArea.style.fontSize = '13.5px';
 
-        // 3. Set teks instruksinya
         if (mode === "Bug Fixer") {
             userPromptArea.innerHTML = `💡 <strong>Misi:</strong> Tolong analisis dan perbaiki error pada kode <strong>${bahasa}</strong> ini.`;
         } else if (mode === "Explainer") {
@@ -78,7 +73,7 @@ async function analyzeCode() {
                 bahasa: bahasa,
                 kode: code,
                 nama_file_model: modelPilihan,
-                benchmark_task: benchmarkTask // KIRIM KE PYTHON
+                benchmark_task: benchmarkTask
             })
         });
 
@@ -86,10 +81,8 @@ async function analyzeCode() {
 
         if (result.status === "success") {
             if (result.mode === "Benchmarking") {
-                // Jalankan fungsi Isolasi UI Khusus Benchmarking
                 renderBenchmarking(result, responseArea);
             } else {
-                // Tampilan Mode Reguler
                 responseArea.innerHTML = marked.parse(result.data);
             }
         } else {
@@ -102,7 +95,6 @@ async function analyzeCode() {
     }
 }
 
-// FUNGSI ISOLASI UI BENCHMARKING & HIGHLIGHT PEMENANG
 function renderBenchmarking(data, container) {
     container.innerHTML = "";
     
@@ -115,7 +107,6 @@ function renderBenchmarking(data, container) {
     `;
     container.innerHTML = headerHtml;
 
-    // Bikin kotak satu per satu untuk mencegah output menyatu
     data.hasil_pekerja.forEach((pekerja) => {
         const modelDiv = document.createElement('div');
         modelDiv.className = 'model-container';
@@ -138,11 +129,9 @@ function renderBenchmarking(data, container) {
     judgeDiv.innerHTML = marked.parse(markdownHakim);
     container.appendChild(judgeDiv);
 
-    // Deteksi Tag Pemenang dan Beri Warna Hijau
     const pemenang = data.pemenang_benchmark; 
 
     if (pemenang && pemenang !== "Tidak ada" && pemenang !== "Error") {
-        // Cocokkan format ID dengan saat pembuatan div model di atas
         let winnerId = 'model-' + pemenang.replace(/\s+/g, '-');
         let winnerDiv = document.getElementById(winnerId);
         
@@ -151,7 +140,6 @@ function renderBenchmarking(data, container) {
             winnerDiv.innerHTML = '<div class="winner-badge"><i class="fas fa-trophy"></i> TERBAIK</div>' + winnerDiv.innerHTML;
         }
         
-        // (Opsional) Bersihkan teks deklarasi "PEMENANG: ..." dari tampilan Hakim agar UI lebih rapi
         judgeDiv.innerHTML = judgeDiv.innerHTML.replace(/PEMENANG:.*?<\/p>/i, '</p>');
         judgeDiv.innerHTML = judgeDiv.innerHTML.replace(/PEMENANG:.*?(<br>|\n)/i, '');
     }
@@ -171,7 +159,6 @@ function toggleTheme() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Logika Tema
     const savedTheme = localStorage.getItem('theme');
     const themeBtn = document.getElementById('themeToggleBtn');
     if (savedTheme === 'light') {
@@ -179,9 +166,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if(themeBtn) themeBtn.innerHTML = '<i class="fas fa-moon"></i> Dark Mode';
     }
     
-    // Logika Dinamis Dropdown & Placeholder
     const modeSelect = document.getElementById('modeSelect');
-    const modelSelect = document.getElementById('modelSelect'); // Ambil elemen dropdown AI
+    const modelSelect = document.getElementById('modelSelect');
     const codeInput = document.getElementById('codeInput');
     
     if (modeSelect && codeInput) {
@@ -189,7 +175,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const selectedMode = e.target.value;
             const benchmarkGroup = document.getElementById('benchmarkTaskGroup');
             
-            // Ubah Placeholder
             if (selectedMode === "Generate Code") {
                 codeInput.placeholder = "Contoh: Buatkan fungsi kalkulator sederhana...";
             } else if (selectedMode === "Benchmarking") {
@@ -198,20 +183,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 codeInput.placeholder = "Paste (Tempel) kode Anda di sini...";
             }
             
-            // UX Logika Benchmarking
             if (selectedMode === "Benchmarking") {
                 if(modelSelect) {
                     modelSelect.disabled = true;
                     modelSelect.style.opacity = '0.4';
                 }
-                // Tampilkan opsi tugas Benchmarking
                 if(benchmarkGroup) benchmarkGroup.style.display = 'flex'; 
             } else {
                 if(modelSelect) {
                     modelSelect.disabled = false;
                     modelSelect.style.opacity = '1';
                 }
-                // Sembunyikan opsi tugas
                 if(benchmarkGroup) benchmarkGroup.style.display = 'none';
             }
         });
