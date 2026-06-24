@@ -97,12 +97,12 @@ async function analyzeCode() {
 
 function renderBenchmarking(data, container) {
     container.innerHTML = "";
-    
+
     let headerHtml = `
         <h3 style="color: var(--accent-blue);">📊 Laporan Benchmarking Otomatis</h3>
         <p><strong>Bahasa:</strong> ${data.bahasa}</p>
         <p><strong>Instruksi:</strong></p>
-        ${marked.parse("\`\`\`\\n" + data.kode_instruksi + "\\n\`\`\`")}
+        ${marked.parse("\`\`\`\n" + data.kode_instruksi + "\n\`\`\`")}
         <hr style="margin: 20px 0; border-color: var(--border-color);">
     `;
     container.innerHTML = headerHtml;
@@ -112,6 +112,7 @@ function renderBenchmarking(data, container) {
         modelDiv.className = 'model-container';
         modelDiv.id = 'model-' + pekerja.nama_model.replace(/\s+/g, '-');
         modelDiv.style.marginBottom = "20px";
+        modelDiv.style.position = "relative";
 
         let markdownJawaban = `#### 🤖 ${pekerja.nama_model}\n\n${pekerja.jawaban}`;
         modelDiv.innerHTML = marked.parse(markdownJawaban);
@@ -130,19 +131,39 @@ function renderBenchmarking(data, container) {
     container.appendChild(judgeDiv);
 
     const pemenang = data.pemenang_benchmark; 
+    const judgeTextRaw = data.penilaian_hakim;
 
-    if (pemenang && pemenang !== "Tidak ada" && pemenang !== "Error") {
-        let winnerId = 'model-' + pemenang.replace(/\s+/g, '-');
-        let winnerDiv = document.getElementById(winnerId);
+    let scoreMap = {};
+    data.hasil_pekerja.forEach((pekerja) => {
+        const regex = new RegExp(pekerja.nama_model.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "\\s*:\\s*([\\d\\.,]+)", "i");
+        const match = judgeTextRaw.match(regex);
         
-        if (winnerDiv) {
-            winnerDiv.classList.add('winner-highlight');
-            winnerDiv.innerHTML = '<div class="winner-badge"><i class="fas fa-trophy"></i> TERBAIK</div>' + winnerDiv.innerHTML;
+        if (match && match[1]) {
+            scoreMap[pekerja.nama_model] = match[1].replace(',', '.');
+        } else {
+            scoreMap[pekerja.nama_model] = "-";
         }
-        
-        judgeDiv.innerHTML = judgeDiv.innerHTML.replace(/PEMENANG:.*?<\/p>/i, '</p>');
-        judgeDiv.innerHTML = judgeDiv.innerHTML.replace(/PEMENANG:.*?(<br>|\n)/i, '');
-    }
+    });
+
+    data.hasil_pekerja.forEach((pekerja) => {
+        let modelId = 'model-' + pekerja.nama_model.replace(/\s+/g, '-');
+        let modelDiv = document.getElementById(modelId);
+        let skor = scoreMap[pekerja.nama_model];
+
+        if (modelDiv) {
+            if (pekerja.nama_model === pemenang && pemenang !== "Tidak ada" && pemenang !== "Error") {
+                modelDiv.classList.add('winner-highlight');
+                modelDiv.innerHTML = `<div class="winner-badge"><i class="fas fa-trophy"></i> TERBAIK | Skor: ${skor}</div>` + modelDiv.innerHTML;
+            } else {
+                modelDiv.innerHTML = `<div class="winner-badge" style="background-color: #64748b; color: white;"><i class="fas fa-star-half-alt"></i> Skor: ${skor}</div>` + modelDiv.innerHTML;
+            }
+        }
+    });
+
+    judgeDiv.innerHTML = judgeDiv.innerHTML.replace(/PEMENANG:.*?<\/p>/gi, '</p>');
+    judgeDiv.innerHTML = judgeDiv.innerHTML.replace(/PEMENANG:.*?(<br>|\n)/gi, '');
+    judgeDiv.innerHTML = judgeDiv.innerHTML.replace(/SKOR:.*?<\/p>/gi, '</p>');
+    judgeDiv.innerHTML = judgeDiv.innerHTML.replace(/SKOR:.*?(<br>|\n)/gi, '');
 }
 
 function toggleTheme() {
@@ -165,25 +186,36 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.classList.add('light-mode');
         if(themeBtn) themeBtn.innerHTML = '<i class="fas fa-moon"></i> Dark Mode';
     }
-    
+
     const modeSelect = document.getElementById('modeSelect');
     const modelSelect = document.getElementById('modelSelect');
     const codeInput = document.getElementById('codeInput');
-    
+    const benchmarkTaskSelect = document.getElementById('benchmarkTaskSelect');
+
     if (modeSelect && codeInput) {
-        modeSelect.addEventListener('change', (e) => {
-            const selectedMode = e.target.value;
-            const benchmarkGroup = document.getElementById('benchmarkTaskGroup');
+        
+        const updatePlaceholder = () => {
+            const selectedMode = modeSelect.value;
+            const selectedTask = benchmarkTaskSelect ? benchmarkTaskSelect.value : "";
             
-            if (selectedMode === "Generate Code") {
-                codeInput.placeholder = "Contoh: Buatkan fungsi kalkulator sederhana...";
+            const isGenerateCode = selectedMode === "Generate Code" || 
+                                  (selectedMode === "Benchmarking" && selectedTask === "Generate Code");
+
+            if (isGenerateCode) {
+                codeInput.placeholder = "Tips Generate Code agar AI akurat:\n1. Jelaskan tujuan kode (misal: 'Buatkan fungsi Python untuk sorting data...').\n2. Tentukan algoritma yang diinginkan (misal: 'Gunakan QuickSort').\n3. Minta fitur tambahan (misal: 'Berikan komentar di setiap baris dan tambahkan error handling').\n\nKetik instruksi lengkap Anda di sini...";
             } else if (selectedMode === "Benchmarking") {
-                codeInput.placeholder = "Masukkan instruksi/kode untuk diuji oleh ke-3 model...";
+                codeInput.placeholder = "Masukkan instruksi, logika, atau kode untuk diuji secara komparatif oleh ke-3 model...\n(Semakin detail instruksinya, semakin adil penilaian Hakim)";
             } else {
                 codeInput.placeholder = "Paste (Tempel) kode Anda di sini...";
             }
+        };
+
+        modeSelect.addEventListener('change', (e) => {
+            updatePlaceholder();
             
-            if (selectedMode === "Benchmarking") {
+            const benchmarkGroup = document.getElementById('benchmarkTaskGroup');
+            
+            if (e.target.value === "Benchmarking") {
                 if(modelSelect) {
                     modelSelect.disabled = true;
                     modelSelect.style.opacity = '0.4';
@@ -197,5 +229,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(benchmarkGroup) benchmarkGroup.style.display = 'none';
             }
         });
+
+        if (benchmarkTaskSelect) {
+            benchmarkTaskSelect.addEventListener('change', updatePlaceholder);
+        }
+        
+        updatePlaceholder();
     }
 });

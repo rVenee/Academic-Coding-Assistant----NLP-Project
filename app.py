@@ -235,7 +235,10 @@ async def chat_endpoint(request: Request):
             f"{kriteria_tambahan}\n\n"
             f"Berikut adalah evaluasi performa model:\n"
             f"{''.join(jawaban_untuk_hakim)}\n"
-            f"Berdasarkan data di atas, tentukan pemenangnya. WAJIB tuliskan di baris pertama format berikut: 'PEMENANG: [Nama Model]'. Kemudian berikan alasan singkatmu di baris berikutnya."
+            f"Berdasarkan data di atas, tentukan pemenangnya. WAJIB patuhi format struktur berikut di awal jawabanmu:\n"
+            f"PEMENANG: [Nama Model yang menang]\n"
+            f"SKOR: [Nama Model 1]: X/10, [Nama Model 2]: Y/10, [Nama Model 3]: Z/10 (Gunakan angka desimal jika perlu, misal 9.5/10)\n\n"
+            f"Setelah format di atas, berikan alasan analitis singkatmu mengapa skor tersebut diberikan."
         )
 
         try:
